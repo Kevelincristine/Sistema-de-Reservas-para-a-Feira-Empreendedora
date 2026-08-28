@@ -1,0 +1,21 @@
+from flask import Flask, session, redirect, url_for
+
+app = Flask(__name__)
+app.secret_key = 'sua_chave_secreta_aqui'
+
+@app.route('/admin/logout')
+def admin_logout():
+    # Verifica se há um admin logado
+    if session.get('admin_logado'):
+        # Remove todos os dados da sessão
+        session.clear()
+
+    # Redireciona para a página de login
+    return redirect(url_for('login'))
+
+@app.route('/login')
+def login():
+    return "Página de login"
+
+if __name__ == '__main__':
+    app.run(debug=True)
