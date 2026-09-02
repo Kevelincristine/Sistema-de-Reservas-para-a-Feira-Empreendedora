@@ -172,18 +172,6 @@
     display:none;
   }
   .auth-error.show{ display:block; }
-  .account-type-tabs{ display:flex; gap:8px; margin-bottom:14px; }
-  .account-type-tabs button{
-    flex:1; padding:8px 6px; border-radius:10px; border:2px solid var(--ink);
-    background:var(--card); font-family:'Space Grotesk',sans-serif; font-weight:700;
-    font-size:12.5px; cursor:pointer; color:var(--ink);
-  }
-  .account-type-tabs button.active{ background:var(--mustard); border-color:var(--mustard); }
-  .auth-form select{
-    width:100%; border:2px solid var(--ink); border-radius:8px;
-    padding:10px 12px; margin-bottom:14px; font-family:'Space Grotesk',sans-serif;
-    font-size:14px; background:#fffefb;
-  }
 
   /* ---------- admin dashboard ---------- */
   .admin-overlay{
@@ -232,73 +220,6 @@
   .admin-row .bar{ height:100%; background:var(--olive); }
   .admin-row .count{ font-weight:700; font-size:15px; min-width:34px; text-align:right; }
   .admin-empty{ text-align:center; color:#6b5f4d; font-size:14px; padding:20px 0; }
-
-  /* ---------- painel do empreendedor ---------- */
-  .vendor-panel{ max-width:640px; }
-  .vendor-panel h3{ font-size:16px; margin:22px 0 10px; padding-top:14px; border-top:2px dashed var(--line); }
-  .vendor-panel h3:first-of-type{ border-top:none; padding-top:0; margin-top:0; }
-  .vendor-field{ margin-bottom:14px; }
-  .vendor-field label{
-    display:block; font-size:12px; font-weight:700; text-transform:uppercase;
-    letter-spacing:.05em; margin-bottom:6px; color:#5c5142;
-  }
-  .vendor-field input[type=text], .vendor-field textarea{
-    width:100%; border:2px solid var(--ink); border-radius:8px;
-    padding:10px 12px; font-family:'Space Grotesk',sans-serif;
-    font-size:14px; background:#fffefb; resize:vertical;
-  }
-  .vendor-row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .vendor-photo-grid{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
-  .vendor-photo{ position:relative; width:88px; height:88px; border-radius:8px; overflow:hidden; border:2px solid var(--ink); }
-  .vendor-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
-  .vendor-photo button{
-    position:absolute; top:2px; right:2px; width:20px; height:20px; border-radius:50%;
-    background:var(--awning-a); color:#fff; border:none; font-size:11px; line-height:1; cursor:pointer;
-  }
-  .vendor-photo-add{
-    width:88px; height:88px; border-radius:8px; border:2px dashed var(--ink);
-    background:#fffefb; display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:2px; font-size:11px; font-weight:700; color:#5c5142; cursor:pointer; text-align:center;
-  }
-  .vendor-photo-add input{ display:none; }
-  .vendor-product{
-    border:2px solid var(--ink); border-radius:10px; padding:14px; margin-bottom:12px;
-    background:#fffefb; display:flex; gap:12px;
-  }
-  .vendor-product .thumb{
-    width:64px; height:64px; border-radius:8px; overflow:hidden; border:2px solid var(--ink); flex:none;
-    position:relative; background:#e9dfc9;
-  }
-  .vendor-product .thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
-  .vendor-product .thumb label{
-    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-    background:rgba(0,0,0,.35); color:#fff; font-size:16px; cursor:pointer; margin:0;
-  }
-  .vendor-product .thumb input{ display:none; }
-  .vendor-product .fields{ flex:1; min-width:0; display:flex; flex-direction:column; gap:6px; }
-  .vendor-product .fields input, .vendor-product .fields textarea{
-    width:100%; border:2px solid var(--ink); border-radius:6px; padding:6px 8px;
-    font-family:'Space Grotesk',sans-serif; font-size:13px; background:#fff; resize:vertical;
-  }
-  .vendor-product .remove-product{
-    align-self:flex-start; border:none; background:none; color:var(--awning-a);
-    font-weight:700; font-size:12px; cursor:pointer; padding:2px 0;
-  }
-  .vendor-add-product{
-    width:100%; border:2px dashed var(--ink); background:#fffefb; color:var(--ink);
-    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px;
-    padding:12px; border-radius:10px; cursor:pointer; margin-bottom:20px;
-  }
-  .vendor-save{
-    width:100%; border:2px solid var(--ink); background:var(--olive); color:#fff;
-    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px;
-    padding:13px; border-radius:999px; cursor:pointer;
-  }
-  .vendor-saved-msg{
-    text-align:center; font-size:12.5px; font-weight:700; color:var(--olive);
-    margin-top:10px; display:none;
-  }
-  .vendor-saved-msg.show{ display:block; }
 
   /* ---------- cart ---------- */
   .header-actions{
@@ -744,17 +665,6 @@
         <label for="authName">Nome</label>
         <input type="text" id="authName" placeholder="Seu nome">
       </div>
-      <div id="accountTypeField" style="display:none">
-        <label>Tipo de conta</label>
-        <div class="account-type-tabs">
-          <button type="button" data-type="visitor" class="active" id="typeVisitor">🧺 Visitante</button>
-          <button type="button" data-type="vendor" id="typeVendor">🏪 Empreendedor(a)</button>
-        </div>
-      </div>
-      <div id="vendorStallField" style="display:none">
-        <label for="authStall">Qual é a sua barraca?</label>
-        <select id="authStall"></select>
-      </div>
       <label for="authEmail">E-mail</label>
       <input type="email" id="authEmail" placeholder="voce@email.com" required>
       <label for="authPass">Senha</label>
@@ -772,10 +682,6 @@
     <div class="admin-stats" id="adminStats"></div>
     <div class="admin-list" id="adminList"></div>
   </div>
-</div>
-
-<div class="admin-overlay" id="vendorOverlay">
-  <div class="admin-panel vendor-panel" id="vendorPanel"></div>
 </div>
 
 <div class="cart-overlay" id="cartOverlay">
@@ -942,47 +848,6 @@ const STALLS = [
   }
 ];
 
-/* ---------- dados editáveis pelas barracas (sobrepõem STALLS) ---------- */
-function getStallOverrides(){
-  return JSON.parse(localStorage.getItem('feira_stall_data') || '{}');
-}
-function saveStallOverride(id, data){
-  const all = getStallOverrides();
-  all[id] = data;
-  localStorage.setItem('feira_stall_data', JSON.stringify(all));
-}
-function getStall(id){
-  const base = STALLS.find(s => s.id === Number(id));
-  if(!base) return null;
-  const override = getStallOverrides()[id];
-  return override ? { ...base, ...override } : base;
-}
-function allStalls(){
-  return STALLS.map(s => getStall(s.id));
-}
-/* comprime a imagem antes de guardar no localStorage, evitando estourar o limite de espaço */
-function readImageCompressed(file, maxW = 900, quality = 0.75){
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = reject;
-      img.onload = () => {
-        const scale = Math.min(1, maxW / img.width);
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 /* ---------- login system ---------- */
 const ADMIN_CREDENTIALS = {
   email: "adminnuzzi26@gmail.com",
@@ -1001,25 +866,6 @@ const nameField = document.getElementById('nameField');
 const tabLogin = document.getElementById('tabLogin');
 const tabRegister = document.getElementById('tabRegister');
 let authMode = 'login';
-let accountType = 'visitor';
-const accountTypeField = document.getElementById('accountTypeField');
-const vendorStallField = document.getElementById('vendorStallField');
-const authStallSelect = document.getElementById('authStall');
-const typeVisitorBtn = document.getElementById('typeVisitor');
-const typeVendorBtn = document.getElementById('typeVendor');
-
-function populateStallSelect(){
-  authStallSelect.innerHTML = allStalls().map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-}
-function setAccountType(type){
-  accountType = type;
-  typeVisitorBtn.classList.toggle('active', type === 'visitor');
-  typeVendorBtn.classList.toggle('active', type === 'vendor');
-  vendorStallField.style.display = type === 'vendor' ? 'block' : 'none';
-  if(type === 'vendor') populateStallSelect();
-}
-typeVisitorBtn.addEventListener('click', ()=> setAccountType('visitor'));
-typeVendorBtn.addEventListener('click', ()=> setAccountType('vendor'));
 
 function getUsers(){
   return JSON.parse(localStorage.getItem('feira_users') || '{}');
@@ -1054,14 +900,10 @@ function renderLoginCorner(){
     const adminBtn = session.isAdmin
       ? `<button id="adminBtn" title="Movimento das barracas">📊</button>`
       : '';
-    const vendorBtn = session.vendorStallId
-      ? `<button id="vendorBtn" title="Minha barraca">🏪</button>`
-      : '';
     loginCorner.innerHTML = `
       <div class="user-chip">
         <div class="avatar">${initial}</div>
         <span>${session.name.split(' ')[0]}</span>
-        ${vendorBtn}
         ${adminBtn}
         <button id="logoutBtn">Sair</button>
       </div>
@@ -1072,9 +914,6 @@ function renderLoginCorner(){
     });
     if(session.isAdmin){
       document.getElementById('adminBtn').addEventListener('click', openAdmin);
-    }
-    if(session.vendorStallId){
-      document.getElementById('vendorBtn').addEventListener('click', ()=> openVendorDashboard(session.vendorStallId));
     }
   } else {
     loginCorner.innerHTML = `<button class="login-btn" id="openAuthBtn">👤 Entrar</button>`;
@@ -1099,13 +938,7 @@ function setAuthMode(mode){
     authTitle.textContent = 'Criar conta';
     authSub.textContent = 'Cadastre-se para acompanhar a feira.';
     nameField.style.display = 'block';
-    accountTypeField.style.display = 'block';
     authSubmitBtn.textContent = 'Criar conta';
-    setAccountType('visitor');
-  }
-  if(mode === 'login'){
-    accountTypeField.style.display = 'none';
-    vendorStallField.style.display = 'none';
   }
 }
 
@@ -1151,19 +984,9 @@ authForm.addEventListener('submit', (e)=>{
       authError.classList.add('show');
       return;
     }
-    let vendorStallId = null;
-    if(accountType === 'vendor'){
-      vendorStallId = Number(authStallSelect.value);
-      const claimedBy = Object.values(users).find(u => u.vendorStallId === vendorStallId);
-      if(claimedBy){
-        authError.textContent = 'Essa barraca já tem uma conta de empreendedor vinculada.';
-        authError.classList.add('show');
-        return;
-      }
-    }
-    users[email] = vendorStallId !== null ? { name, pass, vendorStallId } : { name, pass };
+    users[email] = { name, pass };
     saveUsers(users);
-    setSession(vendorStallId !== null ? { email, name, vendorStallId } : { email, name });
+    setSession({ email, name });
     renderLoginCorner();
     closeAuth();
   } else {
@@ -1173,7 +996,7 @@ authForm.addEventListener('submit', (e)=>{
       authError.classList.add('show');
       return;
     }
-    setSession(user.vendorStallId !== undefined ? { email, name: user.name, vendorStallId: user.vendorStallId } : { email, name: user.name });
+    setSession({ email, name: user.name });
     renderLoginCorner();
     closeAuth();
   }
@@ -1198,7 +1021,7 @@ adminOverlay.addEventListener('click', (e)=>{ if(e.target === adminOverlay) clos
 
 function renderAdminDashboard(){
   const visits = getVisits();
-  const rows = allStalls().map(s => ({
+  const rows = STALLS.map(s => ({
     id: s.id, name: s.name, category: s.category,
     count: visits[s.id] || 0
   })).sort((a,b) => b.count - a.count);
@@ -1232,178 +1055,6 @@ function renderAdminDashboard(){
   `).join('');
 }
 
-/* ---------- painel do empreendedor ---------- */
-const vendorOverlay = document.getElementById('vendorOverlay');
-const vendorPanel = document.getElementById('vendorPanel');
-let vendorWorking = null; // cópia de trabalho da barraca sendo editada
-
-function openVendorDashboard(stallId){
-  const s = getStall(stallId);
-  if(!s) return;
-  vendorWorking = {
-    id: s.id,
-    name: s.name,
-    desc: s.desc,
-    about: s.about,
-    address: s.address,
-    hours: s.hours,
-    cover: s.cover,
-    gallery: s.gallery ? [...s.gallery] : [s.cover],
-    products: s.products.map(p => ({...p}))
-  };
-  renderVendorDashboard();
-  vendorOverlay.classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-function closeVendorDashboard(){
-  vendorOverlay.classList.remove('open');
-  document.body.style.overflow = '';
-}
-vendorOverlay.addEventListener('click', (e)=>{ if(e.target === vendorOverlay) closeVendorDashboard(); });
-
-function renderVendorDashboard(){
-  const w = vendorWorking;
-  vendorPanel.innerHTML = `
-    <button class="close" id="vendorClose">✕</button>
-    <h2>Minha barraca</h2>
-    <p class="sub">Edite as informações, fotos e produtos exibidos aos visitantes da feira.</p>
-
-    <h3>Informações</h3>
-    <div class="vendor-field">
-      <label for="vName">Nome da barraca</label>
-      <input type="text" id="vName" value="${w.name}">
-    </div>
-    <div class="vendor-field">
-      <label for="vDesc">Descrição curta (aparece no card)</label>
-      <input type="text" id="vDesc" value="${w.desc}">
-    </div>
-    <div class="vendor-field">
-      <label for="vAbout">Sobre a barraca</label>
-      <textarea id="vAbout" rows="3">${w.about}</textarea>
-    </div>
-    <div class="vendor-row2">
-      <div class="vendor-field">
-        <label for="vAddress">Localização</label>
-        <input type="text" id="vAddress" value="${w.address}">
-      </div>
-      <div class="vendor-field">
-        <label for="vHours">Horário</label>
-        <input type="text" id="vHours" value="${w.hours}">
-      </div>
-    </div>
-
-    <h3>Fotos da barraca</h3>
-    <div class="vendor-photo-grid" id="vendorPhotoGrid"></div>
-
-    <h3>Produtos</h3>
-    <div id="vendorProductList"></div>
-    <button type="button" class="vendor-add-product" id="vendorAddProduct">+ Adicionar produto</button>
-
-    <button type="button" class="vendor-save" id="vendorSave">Salvar alterações</button>
-    <div class="vendor-saved-msg" id="vendorSavedMsg">✓ Alterações salvas!</div>
-  `;
-  renderVendorPhotoGrid();
-  renderVendorProducts();
-
-  document.getElementById('vendorClose').addEventListener('click', closeVendorDashboard);
-  document.getElementById('vendorAddProduct').addEventListener('click', ()=>{
-    w.products.push({ name:'', price:'', desc:'', img: w.cover });
-    renderVendorProducts();
-  });
-  document.getElementById('vendorSave').addEventListener('click', saveVendorDashboard);
-}
-
-function renderVendorPhotoGrid(){
-  const w = vendorWorking;
-  const grid = document.getElementById('vendorPhotoGrid');
-  grid.innerHTML = `
-    ${w.gallery.map((img, i) => `
-      <div class="vendor-photo">
-        <img src="${img}" alt="Foto ${i+1}">
-        ${w.gallery.length > 1 ? `<button data-i="${i}" title="Remover">✕</button>` : ''}
-      </div>
-    `).join('')}
-    <label class="vendor-photo-add">
-      📷<span>Tirar / enviar foto</span>
-      <input type="file" accept="image/*" capture="environment" id="vendorPhotoInput">
-    </label>
-  `;
-  grid.querySelectorAll('.vendor-photo button').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      w.gallery.splice(Number(btn.getAttribute('data-i')), 1);
-      renderVendorPhotoGrid();
-    });
-  });
-  document.getElementById('vendorPhotoInput').addEventListener('change', async (e)=>{
-    const file = e.target.files[0];
-    if(!file) return;
-    const dataUrl = await readImageCompressed(file);
-    w.gallery.push(dataUrl);
-    renderVendorPhotoGrid();
-  });
-}
-
-function renderVendorProducts(){
-  const w = vendorWorking;
-  const list = document.getElementById('vendorProductList');
-  list.innerHTML = w.products.map((p, i) => `
-    <div class="vendor-product" data-i="${i}">
-      <div class="thumb">
-        <img src="${p.img}" alt="${p.name || 'produto'}">
-        <label>📷<input type="file" accept="image/*" capture="environment" class="vendor-product-photo" data-i="${i}"></label>
-      </div>
-      <div class="fields">
-        <input type="text" placeholder="Nome do produto" class="vp-name" data-i="${i}" value="${p.name}">
-        <input type="text" placeholder="Preço (ex: R$ 10,00)" class="vp-price" data-i="${i}" value="${p.price}">
-        <textarea placeholder="Descrição curta" rows="2" class="vp-desc" data-i="${i}">${p.desc}</textarea>
-        <button type="button" class="remove-product" data-i="${i}">Remover produto</button>
-      </div>
-    </div>
-  `).join('');
-
-  list.querySelectorAll('.vp-name').forEach(el => el.addEventListener('input', e=>{
-    w.products[Number(e.target.dataset.i)].name = e.target.value;
-  }));
-  list.querySelectorAll('.vp-price').forEach(el => el.addEventListener('input', e=>{
-    w.products[Number(e.target.dataset.i)].price = e.target.value;
-  }));
-  list.querySelectorAll('.vp-desc').forEach(el => el.addEventListener('input', e=>{
-    w.products[Number(e.target.dataset.i)].desc = e.target.value;
-  }));
-  list.querySelectorAll('.remove-product').forEach(el => el.addEventListener('click', e=>{
-    w.products.splice(Number(e.target.dataset.i), 1);
-    renderVendorProducts();
-  }));
-  list.querySelectorAll('.vendor-product-photo').forEach(el => el.addEventListener('change', async e=>{
-    const file = e.target.files[0];
-    if(!file) return;
-    const dataUrl = await readImageCompressed(file, 500, 0.75);
-    w.products[Number(e.target.dataset.i)].img = dataUrl;
-    renderVendorProducts();
-  }));
-}
-
-function saveVendorDashboard(){
-  const w = vendorWorking;
-  w.name = document.getElementById('vName').value.trim() || w.name;
-  w.desc = document.getElementById('vDesc').value.trim();
-  w.about = document.getElementById('vAbout').value.trim();
-  w.address = document.getElementById('vAddress').value.trim();
-  w.hours = document.getElementById('vHours').value.trim();
-  w.cover = w.gallery[0];
-  w.products = w.products.filter(p => p.name.trim() && p.price.trim());
-
-  saveStallOverride(w.id, {
-    name: w.name, desc: w.desc, about: w.about, address: w.address,
-    hours: w.hours, cover: w.cover, gallery: w.gallery, products: w.products
-  });
-
-  renderGrid();
-  const msg = document.getElementById('vendorSavedMsg');
-  msg.classList.add('show');
-  setTimeout(()=> msg.classList.remove('show'), 2000);
-}
-
 renderLoginCorner();
 
 const HIDDEN_CATS = ["Frutas & Verduras", "Artesanato", "Flores & Plantas", "Laticínios"];
@@ -1430,8 +1081,7 @@ function renderFilters(){
 }
 
 function renderGrid(){
-  const stalls = allStalls();
-  let list = activeCat === "Todas" ? stalls : stalls.filter(s=>s.category===activeCat);
+  let list = activeCat === "Todas" ? STALLS : STALLS.filter(s=>s.category===activeCat);
   const term = searchTerm.trim().toLowerCase();
   if(term){
     list = list.filter(s =>
@@ -1463,16 +1113,16 @@ function renderGrid(){
 }
 
 function openStall(id){
-  const s = getStall(id);
+  const s = STALLS.find(x=>x.id===id);
   registerVisit(id);
   panel.innerHTML = `
     <div class="panel-head">
       <button class="close" id="closeBtn">✕</button>
       <div class="gallery">
-        <img src="${(s.gallery && s.gallery[0]) || s.cover}" alt="${s.name}">
+        <img src="${s.gallery[0]}" alt="${s.name}">
         <div class="side">
-          <img src="${(s.gallery && s.gallery[1]) || s.cover}" alt="${s.name} detalhe 1">
-          <img src="${(s.gallery && s.gallery[2]) || (s.gallery && s.gallery[0]) || s.cover}" alt="${s.name} detalhe 2">
+          <img src="${s.gallery[1]}" alt="${s.name} detalhe 1">
+          <img src="${s.gallery[2]}" alt="${s.name} detalhe 2">
         </div>
       </div>
     </div>
@@ -1558,7 +1208,7 @@ function parsePrice(priceStr){
   return parseFloat(match[0].replace(/\./g,'').replace(',', '.')) || 0;
 }
 function addToCart(stallId, productIdx){
-  const stall = getStall(stallId);
+  const stall = STALLS.find(s => s.id === stallId);
   const product = stall.products[productIdx];
   const cart = getCart();
   const key = `${stallId}__${productIdx}`;
