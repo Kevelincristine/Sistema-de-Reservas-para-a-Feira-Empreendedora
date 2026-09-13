@@ -219,7 +219,7 @@ Durante o piloto, a equipe deve observar principalmente:
 ### 🧭 Gestão e coordenação
 
 **Kevelin** — Supervisão do projeto e Backend  
-`@kevelincristine`
+`@Kevelincristine`
 
 - supervisiona o desenvolvimento;
 - organiza e acompanha as tarefas;
@@ -230,14 +230,14 @@ Durante o piloto, a equipe deve observar principalmente:
 - acompanha a integração entre frontend, backend e banco.
 
 **Suellen** — Coleta de dados e organização  
-`@TODO`
+`@sugelinski`
 
 - organiza a coleta de dados da feira;
 - auxilia no levantamento de lojas e produtos;
 - participa da organização do evento de teste.
 
 **Letycia** — Coleta de dados e organização  
-`@TODO`
+`@letyciadorea`
 
 - auxilia na coleta de dados;
 - organiza informações das lojas;
@@ -246,17 +246,17 @@ Durante o piloto, a equipe deve observar principalmente:
 ### 🎨 Frontend
 
 **Pedro** — Layout do Cliente  
-`@TODO`
+`PeDrokK0`
 
 Responsável pela interface do cliente, incluindo catálogo, lojas, produtos, carrinho e experiência de navegação.
 
 **Isabela** — Layout da Loja  
-`@TODO`
+`@isabelaprocopiooliveira-hash`
 
 Responsável pelo Portal do Parceiro e pelas interfaces utilizadas pelas lojas.
 
 **Danilo** — Layout Administrativo  
-`@TODO`
+`@daniloaraujoalves-sudo`
 
 Responsável pela interface do Painel Administrativo.
 
@@ -268,12 +268,12 @@ Atuarão na evolução visual, identidade, componentes e experiência do usuári
 ### ⚙️ Backend
 
 **Kevelin** — Backend e Banco de Dados  
-`@kevelincristine`
+`@Kevelincristine`
 
 Responsável atualmente pela API, autenticação, sessões, usuários, lojas, produtos, estoque, pedidos, reservas e persistência em SQLite.
 
 **Samuel** — Banco de Dados  
-`@TODO`
+`@TODO
 
 Entrará futuramente auxiliando na evolução e manutenção do banco.
 
