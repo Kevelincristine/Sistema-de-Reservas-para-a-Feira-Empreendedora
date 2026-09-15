@@ -261,7 +261,7 @@ Responsável pelo Portal do Parceiro e pelas interfaces utilizadas pelas lojas.
 Responsável pela interface do Painel Administrativo.
 
 **Miguel R. e Helena** — Design  
-`@TODO / @TODO`
+`@TODO / @Helenabrazcm`
 
 Atuarão na evolução visual, identidade, componentes e experiência do usuário.
 
@@ -271,9 +271,6 @@ Atuarão na evolução visual, identidade, componentes e experiência do usuári
 `@Kevelincristine`
 
 Responsável atualmente pela API, autenticação, sessões, usuários, lojas, produtos, estoque, pedidos, reservas e persistência em SQLite.
-
-**Samuel** — Banco de Dados  
-`@TODO
 
 Entrará futuramente auxiliando na evolução e manutenção do banco.
 
@@ -285,7 +282,7 @@ Atuará na comunicação entre as interfaces e a API, ajudando a integrar os flu
 ### 🛡️ Infraestrutura
 
 **Dennis** — Infraestrutura e segurança  
-`@TODO`
+`@melodennis-droid`
 
 Responsável pela preparação do servidor, disponibilidade, segurança da infraestrutura e suporte durante o piloto e a feira.
 
