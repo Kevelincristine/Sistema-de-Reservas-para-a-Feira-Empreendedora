@@ -48,7 +48,7 @@
                 <h2 id="lpTitle">Entrar</h2>
                 <p class="sub" id="lpSub">Acesse com o mesmo login, cliente ou vendedor — a gente leva você pro lugar
                     certo.</p>
-                <div class="login-note" id="loginNote">Faça login (ou crie sua conta) pra continuar.</div>
+                <div class="login-note" id="loginNote">Informe seu e-mail pra continuar.</div>
 
                 <div class="auth-tabs">
                     <button type="button" id="tabLoginBtn" class="active">Entrar</button>
@@ -61,11 +61,11 @@
                         <input type="email" id="loginEmail" placeholder="voce@escola.pr.gov.br" autocomplete="username"
                             required>
                     </div>
-                    <div class="field">
+                    <div class="field" id="loginPassField" hidden>
                         <label for="loginPass">Senha</label>
                         <div class="input-wrap">
-                            <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password"
-                                required>
+                            <input type="password" id="loginPass" placeholder="••••••••"
+                                autocomplete="current-password">
                             <button type="button" class="toggle-eye" data-target="loginPass" aria-label="Mostrar senha">
                                 <svg class="icon"><use href="#i-eye" /></svg>
                             </button>
@@ -76,9 +76,9 @@
                         (demonstração).</div>
                     <div class="row-between">
                         <label class="remember"><input type="checkbox" id="rememberMe" checked> Manter conectado</label>
-                        <button type="button" class="forgot-link" id="forgotBtn">Esqueci minha senha</button>
+                        <button type="button" class="forgot-link" id="forgotBtn" hidden>Esqueci minha senha</button>
                     </div>
-                    <button type="submit" class="auth-submit">Entrar</button>
+                    <button type="submit" class="auth-submit" id="loginSubmitBtn">Continuar</button>
                 </form>
 
                 <form id="registerForm" style="display:none">
@@ -88,17 +88,8 @@
                     </div>
                     <div class="field">
                         <label for="regEmail">E-mail</label>
-                        <input type="email" id="regEmail" placeholder="voce@escola.pr.gov.br" autocomplete="username" required>
-                    </div>
-                    <div class="field">
-                        <label for="regPass">Crie uma senha</label>
-                        <div class="input-wrap">
-                            <input type="password" id="regPass" placeholder="Mínimo 6 caracteres" minlength="6"
-                                autocomplete="new-password" required>
-                            <button type="button" class="toggle-eye" data-target="regPass" aria-label="Mostrar senha">
-                                <svg class="icon"><use href="#i-eye" /></svg>
-                            </button>
-                        </div>
+                        <input type="email" id="regEmail" placeholder="voce@escola.pr.gov.br" autocomplete="username"
+                            required>
                     </div>
                     <div class="field-error" id="registerError"></div>
                     <button type="submit" class="auth-submit">Criar conta e entrar</button>
@@ -106,7 +97,7 @@
 
                 <div class="lp-note">
                     <b>Contas de demonstração:</b><br>
-                    Cliente: cliente@feiranuzzi.com · senha compras123<br>
+                    Cliente: cliente@feiranuzzi.com (só e-mail)<br>
                     Vendedor: nino@feiranuzzi.com · senha colheita2024<br>
                     Admin: admin@feiranuzzi.com · senha admin123
                 </div>
