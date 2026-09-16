@@ -1,6 +1,6 @@
 # FeiraNuzzi 🛍️
 
-Sistema de reservas desenvolvido para a **Feira Empreendedora**, permitindo que alunos e professores consultem lojas e produtos, montem um carrinho e realizem reservas. As lojas poderão acompanhar pedidos e gerenciar seus produtos e estoque.
+Sistema de reservas desenvolvido para a **Feira Empreendedora**, permitindo que alunos e professores consultem lojas e produtos, montem um carrinho e realizem reservas. As lojas poderão acompanhar pedidos e gerenciar seus produtos e estoque
 
 > **Status:** desenvolvimento e preparação para o piloto escolar.
 
