@@ -32,6 +32,8 @@ from functools import wraps
 from pathlib import Path
 import socket
 import re
+import ipaddress
+import subprocess
 
 from flask import (
     Flask, request, jsonify, g, session,
@@ -149,7 +151,11 @@ CREATE TABLE IF NOT EXISTS usuarios (
     email       TEXT NOT NULL UNIQUE,
     senha_hash  TEXT NOT NULL,
     tipo        TEXT NOT NULL CHECK (tipo IN ('cliente','vendedor','adm')),
-    criado_em   TEXT NOT NULL DEFAULT (datetime('now'))
+    criado_em   TEXT NOT NULL DEFAULT (datetime('now')),
+    ip_acesso       TEXT,
+    mac_address     TEXT,
+    so_text         TEXT,
+    dispositivo_tipo TEXT
 );
 
 CREATE TABLE IF NOT EXISTS lojas (
@@ -222,10 +228,24 @@ CREATE INDEX IF NOT EXISTS idx_pi_produto  ON pedido_itens(produto_id);
 """
 
 
+COLUNAS_ACESSO = ("ip_acesso", "mac_address", "so_text", "dispositivo_tipo")
+
+
+def _migrar_colunas_acesso(conn):
+    """Garante as colunas de acesso em bancos criados antes delas existirem.
+    No feira.db atual elas já existem, então nada é alterado."""
+    existentes = {r["name"] for r in conn.execute("PRAGMA table_info(usuarios)")}
+    for col in COLUNAS_ACESSO:
+        if col not in existentes:
+            conn.execute(f"ALTER TABLE usuarios ADD COLUMN {col} TEXT")
+            logger.info(f"✓ Coluna usuarios.{col} adicionada")
+
+
 def init_db():
     conn = _raw_conn()
     try:
         conn.executescript(SCHEMA)
+        _migrar_colunas_acesso(conn)
         conn.commit()
     finally:
         conn.close()
@@ -343,6 +363,100 @@ def exigir_tipo(*tipos):
 
 
 # =====================================================================
+# ACESSO DO USUÁRIO — IP, MAC, sistema e tipo de dispositivo
+# =====================================================================
+def _ip_cliente() -> str:
+    # remote_addr é o IP real da conexão. X-Forwarded-For não é usado de
+    # propósito: qualquer cliente consegue forjar esse header.
+    return request.remote_addr or ""
+
+
+def _obter_mac(ip: str):
+    """Descobre o MAC via tabela ARP do servidor. Só funciona para
+    aparelhos na MESMA rede local (Wi-Fi da feira); fora dela, ou em
+    localhost, devolve None — o MAC não viaja numa requisição HTTP."""
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return None
+    if addr.version != 4 or addr.is_loopback or not addr.is_private:
+        return None
+
+    try:
+        if os.path.exists("/proc/net/arp"):          # Linux
+            with open("/proc/net/arp", encoding="utf-8") as f:
+                next(f, None)
+                for linha in f:
+                    c = linha.split()
+                    if len(c) >= 4 and c[0] == ip and c[3] != "00:00:00:00:00:00":
+                        return c[3].upper()
+            return None
+        # Windows / macOS
+        saida = subprocess.run(
+            ["arp", "-a", ip], capture_output=True, text=True, timeout=2
+        ).stdout
+    except (OSError, subprocess.SubprocessError, StopIteration):
+        return None
+
+    m = re.search(r"((?:[0-9a-fA-F]{1,2}[:-]){5}[0-9a-fA-F]{1,2})", saida)
+    if not m:
+        return None
+    partes = [p.zfill(2) for p in re.split(r"[:-]", m.group(1))]
+    mac = ":".join(partes).upper()
+    return None if mac in ("00:00:00:00:00:00", "FF:FF:FF:FF:FF:FF") else mac
+
+
+def _analisar_user_agent(ua: str):
+    """Devolve (so_text, dispositivo_tipo) a partir do User-Agent."""
+    ua = (ua or "")[:300]
+    baixo = ua.lower()
+    if not ua:
+        return None, None
+
+    if "android" in baixo:
+        m = re.search(r"android[ /]?([\d.]+)", ua, re.I)
+        so = "Android" + (f" {m.group(1)}" if m else "")
+    elif any(k in baixo for k in ("iphone", "ipad", "ipod")):
+        m = re.search(r"OS (\d+)[_.](\d+)", ua)
+        so = "iOS" + (f" {m.group(1)}.{m.group(2)}" if m else "")
+    elif "windows" in baixo:
+        so = "Windows"
+    elif "cros" in baixo:
+        so = "ChromeOS"
+    elif "mac os x" in baixo or "macintosh" in baixo:
+        so = "macOS"
+    elif "linux" in baixo:
+        so = "Linux"
+    else:
+        so = "Desconhecido"
+
+    if "ipad" in baixo or "tablet" in baixo or ("android" in baixo and "mobile" not in baixo):
+        tipo = "tablet"
+    elif "mobi" in baixo or "iphone" in baixo or "android" in baixo:
+        tipo = "celular"
+    else:
+        tipo = "desktop"
+    return so, tipo
+
+
+def registrar_acesso(conn, usuario_id: int):
+    """Grava no usuário os dados do último acesso. Nunca derruba o
+    login/cadastro: se algo falhar, apenas registra no log."""
+    try:
+        ip = _ip_cliente()
+        so, tipo = _analisar_user_agent(request.headers.get("User-Agent", ""))
+        conn.execute(
+            "UPDATE usuarios SET ip_acesso=?, mac_address=?, so_text=?, "
+            "dispositivo_tipo=? WHERE id=?",
+            (ip or None, _obter_mac(ip), so, tipo, usuario_id),
+        )
+        commit(conn)
+    except Exception as e:
+        conn.rollback()
+        logger.warning(f"Não foi possível registrar o acesso do usuário {usuario_id}: {str(e)[:80]}")
+
+
+# =====================================================================
 # AUTH
 # =====================================================================
 @app.post("/api/auth/register")
@@ -367,6 +481,7 @@ def register():
         )
         commit(conn)
         uid = cur.lastrowid
+        registrar_acesso(conn, uid)
         logger.info(f"✓ Novo usuário cliente registrado: {email}")
     except sqlite3.IntegrityError as e:
         conn.rollback()
@@ -396,6 +511,7 @@ def login():
 
     session["uid"] = u["id"]
     session.permanent = True
+    registrar_acesso(get_conn(), u["id"])
     logger.info(f"✓ Login bem-sucedido: {u['email']} ({u['tipo']})")
     return jsonify({"email": u["email"], "type": u["tipo"], "name": u["nome"]})
 
@@ -983,7 +1099,9 @@ def minhas_reservas():
 def admin_usuarios():
     conn = get_conn()
     us = conn.execute("""
-        SELECT id, nome, email, tipo, criado_em FROM usuarios ORDER BY id
+        SELECT id, nome, email, tipo, criado_em,
+               ip_acesso, mac_address, so_text, dispositivo_tipo
+        FROM usuarios ORDER BY id
     """).fetchall()
     return jsonify(rows_to_list(us))
 
