@@ -24,6 +24,7 @@
 ===============================================================
 """
 import os
+import json
 import sqlite3
 import secrets
 import logging
@@ -219,6 +220,38 @@ CREATE TABLE IF NOT EXISTS visitas (
     visitado_em  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Produtos configuráveis (ex.: milk-shake): opções de cada produto.
+-- Só são usadas quando produtos.configuravel = 1; produtos comuns não tocam nelas.
+CREATE TABLE IF NOT EXISTS produto_sabores (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    produto_id INTEGER NOT NULL,
+    nome       TEXT NOT NULL,
+    ordem      INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (produto_id) REFERENCES produtos(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS produto_tamanhos (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    produto_id INTEGER NOT NULL,
+    nome       TEXT NOT NULL,
+    acrescimo  REAL NOT NULL DEFAULT 0,
+    ordem      INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (produto_id) REFERENCES produtos(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS produto_adicionais (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    produto_id INTEGER NOT NULL,
+    nome       TEXT NOT NULL,
+    preco      REAL NOT NULL DEFAULT 0,
+    ordem      INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (produto_id) REFERENCES produtos(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_psab_prod   ON produto_sabores(produto_id);
+CREATE INDEX IF NOT EXISTS idx_ptam_prod   ON produto_tamanhos(produto_id);
+CREATE INDEX IF NOT EXISTS idx_pad_prod    ON produto_adicionais(produto_id);
+
 CREATE INDEX IF NOT EXISTS idx_prod_loja   ON produtos(loja_id);
 CREATE INDEX IF NOT EXISTS idx_ped_loja    ON pedidos(loja_id);
 CREATE INDEX IF NOT EXISTS idx_ped_cliente ON pedidos(cliente_id);
@@ -241,11 +274,31 @@ def _migrar_colunas_acesso(conn):
             logger.info(f"✓ Coluna usuarios.{col} adicionada")
 
 
+def _migrar_produtos_configuraveis(conn):
+    """Adiciona, sem mexer nos dados existentes, as colunas do recurso de
+    produtos configuráveis. Em bancos que já têm as colunas, nada é alterado.
+    - produtos.configuravel: 0 (padrão) = produto comum
+    - pedido_itens.configuracao: JSON com a escolha feita (sabor/tamanho/adicionais)
+    - pedido_itens.preco_unitario: preço unitário calculado no servidor"""
+    cols_prod = {r["name"] for r in conn.execute("PRAGMA table_info(produtos)")}
+    if "configuravel" not in cols_prod:
+        conn.execute("ALTER TABLE produtos ADD COLUMN configuravel INTEGER NOT NULL DEFAULT 0")
+        logger.info("✓ Coluna produtos.configuravel adicionada")
+    cols_pi = {r["name"] for r in conn.execute("PRAGMA table_info(pedido_itens)")}
+    if "configuracao" not in cols_pi:
+        conn.execute("ALTER TABLE pedido_itens ADD COLUMN configuracao TEXT")
+        logger.info("✓ Coluna pedido_itens.configuracao adicionada")
+    if "preco_unitario" not in cols_pi:
+        conn.execute("ALTER TABLE pedido_itens ADD COLUMN preco_unitario REAL")
+        logger.info("✓ Coluna pedido_itens.preco_unitario adicionada")
+
+
 def init_db():
     conn = _raw_conn()
     try:
         conn.executescript(SCHEMA)
         _migrar_colunas_acesso(conn)
+        _migrar_produtos_configuraveis(conn)
         conn.commit()
     finally:
         conn.close()
@@ -564,6 +617,205 @@ def _hash_stall_id(email: str) -> int:
     return 900000000 + abs(h)
 
 
+# =====================================================================
+# PRODUTOS CONFIGURÁVEIS (ex.: milk-shake) — helpers
+# =====================================================================
+MAX_OPCOES = 30          # limite por grupo (sabores/tamanhos/adicionais)
+MAX_NOME_OPCAO = 60
+
+
+def parse_preco(txt) -> float:
+    """'R$ 12,50' -> 12.5 (mesma regra do front: ponto = milhar, vírgula = decimal)."""
+    m = re.search(r"[\d.,]+", str(txt or ""))
+    if not m:
+        return 0.0
+    try:
+        return float(m.group(0).replace(".", "").replace(",", "."))
+    except ValueError:
+        return 0.0
+
+
+def fmt_brl(v) -> str:
+    return "R$ " + f"{float(v):.2f}".replace(".", ",")
+
+
+def _valor_opcao(v) -> float:
+    """Aceita número (3, 3.5) ou texto ('3,50', 'R$ 3,50'). Nunca negativo."""
+    if v is None or v == "":
+        return 0.0
+    if isinstance(v, bool):
+        raise ValueError("Valor inválido")
+    if isinstance(v, (int, float)):
+        n = float(v)
+    else:
+        n = parse_preco(v)
+    if n < 0 or n != n or n > 100000:
+        raise ValueError("Valor inválido")
+    return round(n, 2)
+
+
+def _nome_opcao(v) -> str:
+    nome = str(v or "").strip()
+    if not nome:
+        raise ValueError("Toda opção precisa de um nome.")
+    if len(nome) > MAX_NOME_OPCAO:
+        raise ValueError(f"Nome de opção muito longo (máx. {MAX_NOME_OPCAO} caracteres).")
+    return nome
+
+
+def _parse_opcoes(data):
+    """Valida as listas vindas do formulário do vendedor.
+    Retorna (sabores, tamanhos, adicionais) já normalizados.
+    Levanta ValueError com mensagem pronta para o usuário."""
+    def lista(chave):
+        v = data.get(chave) or []
+        if not isinstance(v, list):
+            raise ValueError("Formato inválido nas opções do produto.")
+        if len(v) > MAX_OPCOES:
+            raise ValueError(f"Máximo de {MAX_OPCOES} opções por grupo.")
+        return v
+
+    def sem_duplicados(nomes, rotulo):
+        vistos = set()
+        for n in nomes:
+            k = n.casefold()
+            if k in vistos:
+                raise ValueError(f"{rotulo} repetido: {n}")
+            vistos.add(k)
+
+    sabores = []
+    for it in lista("sabores"):
+        sabores.append(_nome_opcao(it.get("nome") if isinstance(it, dict) else it))
+    sem_duplicados(sabores, "Sabor")
+
+    tamanhos = []
+    for it in lista("tamanhos"):
+        if not isinstance(it, dict):
+            raise ValueError("Formato inválido nos tamanhos.")
+        tamanhos.append((_nome_opcao(it.get("nome")), _valor_opcao(it.get("acrescimo"))))
+    sem_duplicados([t[0] for t in tamanhos], "Tamanho")
+
+    adicionais = []
+    for it in lista("adicionais"):
+        if not isinstance(it, dict):
+            raise ValueError("Formato inválido nos adicionais.")
+        adicionais.append((_nome_opcao(it.get("nome")), _valor_opcao(it.get("preco"))))
+    sem_duplicados([a[0] for a in adicionais], "Adicional")
+
+    return sabores, tamanhos, adicionais
+
+
+def _salvar_opcoes(conn, produto_id, sabores, tamanhos, adicionais):
+    """Substitui as opções do produto. Pedidos antigos não são afetados, pois
+    guardam uma cópia (nome/preço) da escolha em pedido_itens.configuracao."""
+    for tabela in ("produto_sabores", "produto_tamanhos", "produto_adicionais"):
+        conn.execute(f"DELETE FROM {tabela} WHERE produto_id=?", (produto_id,))
+    for i, nome in enumerate(sabores):
+        conn.execute("INSERT INTO produto_sabores (produto_id, nome, ordem) VALUES (?,?,?)",
+                     (produto_id, nome, i))
+    for i, (nome, acr) in enumerate(tamanhos):
+        conn.execute("INSERT INTO produto_tamanhos (produto_id, nome, acrescimo, ordem) VALUES (?,?,?,?)",
+                     (produto_id, nome, acr, i))
+    for i, (nome, preco) in enumerate(adicionais):
+        conn.execute("INSERT INTO produto_adicionais (produto_id, nome, preco, ordem) VALUES (?,?,?,?)",
+                     (produto_id, nome, preco, i))
+
+
+def _contar_opcoes(conn, produto_id):
+    n_sab = conn.execute("SELECT COUNT(*) AS n FROM produto_sabores WHERE produto_id=?",
+                         (produto_id,)).fetchone()["n"]
+    n_tam = conn.execute("SELECT COUNT(*) AS n FROM produto_tamanhos WHERE produto_id=?",
+                         (produto_id,)).fetchone()["n"]
+    return n_sab, n_tam
+
+
+def _opcoes_do_produto(conn, produto_id) -> dict:
+    return {
+        "sabores": [{"id": r["id"], "nome": r["nome"]} for r in conn.execute(
+            "SELECT id, nome FROM produto_sabores WHERE produto_id=? ORDER BY ordem, id",
+            (produto_id,))],
+        "tamanhos": [{"id": r["id"], "nome": r["nome"], "acrescimo": r["acrescimo"]} for r in conn.execute(
+            "SELECT id, nome, acrescimo FROM produto_tamanhos WHERE produto_id=? ORDER BY ordem, id",
+            (produto_id,))],
+        "adicionais": [{"id": r["id"], "nome": r["nome"], "preco": r["preco"]} for r in conn.execute(
+            "SELECT id, nome, preco FROM produto_adicionais WHERE produto_id=? ORDER BY ordem, id",
+            (produto_id,))],
+    }
+
+
+def _resolver_configuracao(conn, produto, cfg) -> dict:
+    """Valida a escolha do cliente contra as opções do produto NO BANCO e
+    calcula o preço unitário no servidor (nunca confia no valor do navegador).
+    preço = preço base + acréscimo do tamanho + soma dos adicionais."""
+    nome = produto["nome"]
+    if not isinstance(cfg, dict):
+        raise ValueError(f"Escolha o sabor e o tamanho de {nome}.")
+    try:
+        sabor_id = int(cfg.get("saborId"))
+        tamanho_id = int(cfg.get("tamanhoId"))
+        ad_ids = [int(x) for x in (cfg.get("adicionaisIds") or [])]
+    except (TypeError, ValueError):
+        raise ValueError(f"Configuração inválida para {nome}.")
+
+    sabor = conn.execute(
+        "SELECT id, nome FROM produto_sabores WHERE id=? AND produto_id=?",
+        (sabor_id, produto["id"])).fetchone()
+    if not sabor:
+        raise ValueError(f"Sabor inválido para {nome}.")
+    tamanho = conn.execute(
+        "SELECT id, nome, acrescimo FROM produto_tamanhos WHERE id=? AND produto_id=?",
+        (tamanho_id, produto["id"])).fetchone()
+    if not tamanho:
+        raise ValueError(f"Tamanho inválido para {nome}.")
+
+    adicionais = []
+    for aid in dict.fromkeys(ad_ids):          # remove repetidos, mantém ordem
+        ad = conn.execute(
+            "SELECT id, nome, preco FROM produto_adicionais WHERE id=? AND produto_id=?",
+            (aid, produto["id"])).fetchone()
+        if not ad:
+            raise ValueError(f"Adicional inválido para {nome}.")
+        adicionais.append(ad)
+
+    base = parse_preco(produto["preco"])
+    unit = round(base + tamanho["acrescimo"] + sum(a["preco"] for a in adicionais), 2)
+
+    descricao = f"{nome} ({sabor['nome']}, {tamanho['nome']}"
+    if adicionais:
+        descricao += ", com " + ", ".join(a["nome"] for a in adicionais)
+    descricao += ")"
+
+    return {
+        "descricao": descricao,
+        "preco_unitario": unit,
+        "snapshot": {
+            "produto": nome,
+            "sabor": {"id": sabor["id"], "nome": sabor["nome"]},
+            "tamanho": {"id": tamanho["id"], "nome": tamanho["nome"],
+                        "acrescimo": tamanho["acrescimo"]},
+            "adicionais": [{"id": a["id"], "nome": a["nome"], "preco": a["preco"]}
+                           for a in adicionais],
+            "preco_base": base,
+            "preco_unitario": unit,
+        },
+    }
+
+
+def _produto_publico(conn, p) -> dict:
+    d = {
+        "id": p["id"],
+        "name": p["nome"],
+        "price": p["preco"],
+        "desc": p["descricao"] or "",
+        "img": p["imagem"] or FALLBACK_IMG,
+        "estoque": p["estoque"],
+    }
+    if p["configuravel"]:
+        d["configuravel"] = True
+        d["opcoes"] = _opcoes_do_produto(conn, p["id"])
+    return d
+
+
 @app.get("/api/stalls")
 def listar_stalls():
     """🔒 SEGURANÇA: Não retorna email do vendedor"""
@@ -599,14 +851,7 @@ def listar_stalls():
             "gallery": [cover, r["logo"] or FALLBACK_IMG, FALLBACK_IMG],
             "address": "Vitrine da loja na Feira Nuzzi",
             "hours": r["horario"] or "Consulte o horário na loja",
-            "products": [{
-                "id": p["id"],
-                "name": p["nome"],
-                "price": p["preco"],
-                "desc": p["descricao"] or "",
-                "img": p["imagem"] or FALLBACK_IMG,
-                "estoque": p["estoque"],
-            } for p in prods],
+            "products": [_produto_publico(conn, p) for p in prods],
         })
     return jsonify(result)
 
@@ -614,6 +859,19 @@ def listar_stalls():
 # =====================================================================
 # VENDEDOR
 # =====================================================================
+def _produto_vendor(conn, p) -> dict:
+    d = {
+        "id": p["id"], "nome": p["nome"], "descricao": p["descricao"],
+        "preco": p["preco"], "categoria": p["categoria"],
+        "imagem": p["imagem"], "disponivel": bool(p["disponivel"]),
+        "estoque": p["estoque"],
+        "configuravel": bool(p["configuravel"]),
+    }
+    if p["configuravel"]:
+        d["opcoes"] = _opcoes_do_produto(conn, p["id"])
+    return d
+
+
 def _vendor_payload(conn, usuario_id: int) -> dict:
     loja = conn.execute("SELECT * FROM lojas WHERE usuario_id=?", (usuario_id,)).fetchone()
     if not loja:
@@ -640,12 +898,7 @@ def _vendor_payload(conn, usuario_id: int) -> dict:
             "horario": loja["horario"], "logo": loja["logo"],
             "banner": loja["banner"], "aberta": bool(loja["aberta"]),
         },
-        "produtos": [{
-            "id": p["id"], "nome": p["nome"], "descricao": p["descricao"],
-            "preco": p["preco"], "categoria": p["categoria"],
-            "imagem": p["imagem"], "disponivel": bool(p["disponivel"]),
-            "estoque": p["estoque"],
-        } for p in produtos],
+        "produtos": [_produto_vendor(conn, p) for p in produtos],
         "pedidos": [{
             "id": p["id"], "cliente": p["cliente_nome"], "itens": p["itens"],
             "valor": p["valor"], "valorNumerico": p["valor_numerico"],
@@ -735,6 +988,17 @@ def vendor_criar_produto():
     except (TypeError, ValueError):
         return jsonify({"erro": "Estoque deve ser um número inteiro (0 ou mais), ou vazio para não controlar."}), 400
 
+    # Produto configurável (opcional): valida as opções antes de gravar qualquer coisa
+    configuravel = bool(data.get("configuravel"))
+    opcoes = None
+    if configuravel:
+        try:
+            opcoes = _parse_opcoes(data)
+        except ValueError as e:
+            return jsonify({"erro": str(e)}), 400
+        if not opcoes[0] or not opcoes[1]:
+            return jsonify({"erro": "Produto configurável precisa de pelo menos 1 sabor e 1 tamanho."}), 400
+
     conn = get_conn()
     uid = g.usuario["id"]
 
@@ -751,8 +1015,8 @@ def vendor_criar_produto():
 
     cur = conn.execute("""
         INSERT INTO produtos (loja_id, nome, descricao, preco, categoria,
-                              imagem, disponivel, estoque)
-        VALUES (?,?,?,?,?,?,?,?)
+                              imagem, disponivel, estoque, configuravel)
+        VALUES (?,?,?,?,?,?,?,?,?)
     """, (
         loja_id, nome,
         data.get("descricao", ""),
@@ -761,9 +1025,12 @@ def vendor_criar_produto():
         data.get("imagem", ""),
         1 if data.get("disponivel", True) else 0,
         estoque,
+        1 if configuravel else 0,
     ))
-    commit(conn)
     new_id = cur.lastrowid
+    if configuravel:
+        _salvar_opcoes(conn, new_id, *opcoes)
+    commit(conn)
 
     if not conn.execute("SELECT 1 FROM produtos WHERE id=?", (new_id,)).fetchone():
         logger.error(f"Produto criado mas não encontrado: {new_id}")
@@ -794,6 +1061,22 @@ def vendor_editar_produto(pid):
         except (TypeError, ValueError):
             return jsonify({"erro": "Estoque deve ser um número inteiro (0 ou mais), ou vazio para não controlar."}), 400
 
+    # Produto configurável: só mexe nas opções se o front enviou "configuravel".
+    # Chamadas antigas (pausar, repor estoque, editar preço...) não passam por aqui.
+    opcoes = None
+    if "configuravel" in data:
+        if data.get("configuravel"):
+            if any(k in data for k in ("sabores", "tamanhos", "adicionais")):
+                try:
+                    opcoes = _parse_opcoes(data)
+                except ValueError as e:
+                    return jsonify({"erro": str(e)}), 400
+                n_sab, n_tam = len(opcoes[0]), len(opcoes[1])
+            else:
+                n_sab, n_tam = _contar_opcoes(conn, pid)
+            if n_sab < 1 or n_tam < 1:
+                return jsonify({"erro": "Produto configurável precisa de pelo menos 1 sabor e 1 tamanho."}), 400
+
     sets, vals = [], []
     for c in campos:
         if c in data:
@@ -802,11 +1085,16 @@ def vendor_editar_produto(pid):
                 vals.append(1 if data[c] else 0)
             else:
                 vals.append(data[c])
+    if "configuravel" in data:
+        sets.append("configuravel=?")
+        vals.append(1 if data.get("configuravel") else 0)
     if not sets:
         return jsonify({"ok": True, "msg": "Nada para atualizar"})
 
     vals.append(pid)
     conn.execute(f"UPDATE produtos SET {', '.join(sets)} WHERE id=?", vals)
+    if opcoes is not None:
+        _salvar_opcoes(conn, pid, *opcoes)
     commit(conn)
     return jsonify({"ok": True})
 
@@ -960,19 +1248,39 @@ def criar_pedidos():
 
         for i in (s.get("items") or []):
             qty = int(i.get("qty", 1))
+            if qty < 1:
+                return jsonify({"erro": "Quantidade inválida."}), 400
             produto = None
             produto_id = i.get("id")
 
             if produto_id:
                 produto = conn.execute(
-                    "SELECT id, nome, estoque FROM produtos WHERE id=? AND loja_id=?",
+                    "SELECT id, nome, estoque, preco, configuravel "
+                    "FROM produtos WHERE id=? AND loja_id=?",
                     (produto_id, loja_id)
                 ).fetchone()
+
+            nome_item = i.get("name", "?")
+            config_snapshot = None
+            preco_unit = None
+            if produto and produto["configuravel"]:
+                # Produto configurável: valida a escolha e calcula o preço no servidor
+                try:
+                    cfg = _resolver_configuracao(conn, produto, i.get("config"))
+                except ValueError as e:
+                    return jsonify({"erro": str(e)}), 400
+                nome_item = cfg["descricao"]
+                preco_unit = cfg["preco_unitario"]
+                config_snapshot = cfg["snapshot"]
 
             itens_validados.append({
                 "produto_id": produto["id"] if produto else None,
                 "qty": qty,
-                "nome": i.get("name", "?"),
+                "nome": nome_item,
+                "config": config_snapshot,
+                "preco_unit": preco_unit,
+                "preco_db": parse_preco(produto["preco"]) if produto else None,
+                "preco_cliente": i.get("price"),
             })
 
         itens_desc = ", ".join(
@@ -980,12 +1288,31 @@ def criar_pedidos():
             for it in itens_validados
         )
 
+        valor = s.get("valor", "R$ 0,00")
+        valor_numerico = float(s.get("valorNumerico") or 0)
+
+        # Se a barraca tem algum item configurável, o total é recalculado aqui
+        # no servidor (preço configurado + preço cadastrado dos demais itens).
+        # Pedidos só com produtos comuns seguem exatamente como antes.
+        if any(it["config"] for it in itens_validados):
+            total = 0.0
+            for it in itens_validados:
+                if it["preco_unit"] is not None:
+                    unit = it["preco_unit"]
+                elif it["preco_db"] is not None:
+                    unit = it["preco_db"]
+                else:
+                    unit = parse_preco(it["preco_cliente"])
+                total += unit * it["qty"]
+            valor_numerico = round(total, 2)
+            valor = fmt_brl(valor_numerico)
+
         pendentes.append({
             "loja_id": loja_id,
             "itens": itens_validados,
             "itens_desc": itens_desc,
-            "valor": s.get("valor", "R$ 0,00"),
-            "valor_numerico": float(s.get("valorNumerico") or 0),
+            "valor": valor,
+            "valor_numerico": valor_numerico,
         })
 
     # ---- 2ª passada: desconta o estoque de forma atômica (tudo ou nada) ----
@@ -1042,9 +1369,11 @@ def criar_pedidos():
                 if not it["produto_id"]:
                     continue
                 conn.execute(
-                    "INSERT INTO pedido_itens (pedido_id, produto_id, quantidade) "
-                    "VALUES (?,?,?)",
-                    (pedido_id, it["produto_id"], it["qty"])
+                    "INSERT INTO pedido_itens (pedido_id, produto_id, quantidade, "
+                    "configuracao, preco_unitario) VALUES (?,?,?,?,?)",
+                    (pedido_id, it["produto_id"], it["qty"],
+                     json.dumps(it["config"], ensure_ascii=False) if it["config"] else None,
+                     it["preco_unit"])
                 )
 
         commit(conn)

@@ -144,6 +144,11 @@
               <label for="pDesc">Descrição curta</label>
               <textarea id="pDesc" placeholder="Uma frase sobre o produto"></textarea>
             </div>
+            <div class="full cfg-toggle">
+              <label class="cfg-check"><input type="checkbox" id="pConfig"> Produto configurável (ex.: milk-shake com sabores, tamanhos e adicionais)</label>
+              <div class="cfg-hint">O preço acima passa a ser o preço base. Cada tamanho soma um acréscimo e cada adicional soma o seu valor.</div>
+            </div>
+            <div class="full cfg-box" id="pConfigBox" hidden></div>
           </div>
           <button type="submit" class="add-submit">Adicionar produto</button>
           <span class="save-toast" id="productToast"><svg class="icon"><use href="#i-check"/></svg> Produto adicionado</span>
@@ -220,6 +225,11 @@
         <input type="number" id="eStock" min="0" step="1" placeholder="Ex: 20">
       </div>
       <div class="field"><label for="eDesc">Descrição</label><textarea id="eDesc"></textarea></div>
+      <div class="field cfg-toggle">
+        <label class="cfg-check"><input type="checkbox" id="eConfig"> Produto configurável (sabores, tamanhos e adicionais)</label>
+        <div class="cfg-hint">O preço acima é o preço base; tamanhos e adicionais somam a ele.</div>
+      </div>
+      <div class="cfg-box" id="eConfigBox" hidden></div>
       <label class="remember"><input type="checkbox" id="eActive"> Produto visível no cardápio</label>
       <div class="modal-actions">
         <button type="button" class="btn-ghost" id="editCancel">Cancelar</button>

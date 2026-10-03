@@ -885,3 +885,37 @@ main { max-width: 1080px; margin: 28px auto 80px; padding: 0 clamp(14px, 4vw, 24
 @media (min-width: 721px) {
     .overlay { align-items: center; }
 }
+
+/* ---------- Produto configurável (milk-shake etc.) ---------- */
+.config-overlay { z-index: 240; }
+.cfg-section { margin-top: 16px; }
+.cfg-label {
+    font-size: 12px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .05em; color: var(--label); margin-bottom: 8px;
+}
+.cfg-label em { font-style: normal; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--muted); }
+.cfg-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.cfg-opt { position: relative; cursor: pointer; }
+.cfg-opt input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.cfg-opt span {
+    display: inline-block; padding: 8px 14px; border-radius: 999px;
+    border: 2px solid var(--ink); background: var(--card); color: var(--ink);
+    font-weight: 700; font-size: 13.5px; transition: background .15s ease, color .15s ease;
+}
+.cfg-opt span small { font-weight: 600; color: var(--muted); margin-left: 4px; }
+.cfg-opt:hover span { background: #efe6d2; }
+.cfg-opt input:checked + span { background: var(--olive); border-color: var(--olive); color: #fff; }
+.cfg-opt input:checked + span small { color: #fff; }
+.cfg-opt input:focus-visible + span { outline: 2px solid var(--mustard); outline-offset: 2px; }
+.cfg-summary {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-top: 18px; padding-top: 14px; border-top: 2px dashed var(--line);
+    font-weight: 700;
+}
+.cfg-summary b { font-size: 22px; }
+.cfg-error { font-size: 12.5px; color: var(--awning-a); font-weight: 700; margin-top: 8px; min-height: 16px; }
+.price-from { font-size: 11.5px; font-weight: 600; color: var(--muted); margin-right: 3px; }
+.cart-item .opts, .confirm-stall .citem-opts, .ticket-stall .citem-opts {
+    display: block; font-size: 12px; font-weight: 600; color: var(--muted);
+    line-height: 1.35; margin-top: 2px;
+}

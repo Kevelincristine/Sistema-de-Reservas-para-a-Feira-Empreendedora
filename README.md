@@ -19,13 +19,15 @@ O projeto também terá um **piloto com a comunidade escolar**, usando a cantina
 - carrinho;
 - criação de reservas;
 - código de retirada;
-- acompanhamento dos pedidos.
+- acompanhamento dos pedidos;
+- escolha de sabor, tamanho e adicionais nos produtos configuráveis.
 
 ### Parceiro / Loja
 - acesso ao portal do parceiro;
 - visualização e acompanhamento de pedidos;
 - gerenciamento de produtos;
 - controle de disponibilidade e estoque.
+- **produtos configuráveis** (ex.: milk-shake com sabores, tamanhos e adicionais — veja abaixo).
 
 ### Administração
 - painel administrativo;
@@ -38,6 +40,36 @@ O projeto também terá um **piloto com a comunidade escolar**, usando a cantina
 - integração de pagamento via PIX;
 - refinamento de design e integração entre módulos;
 - preparação para a Feira Empreendedora.
+
+## 🥤 Produtos configuráveis (milk-shake)
+
+Recurso **opcional**: produtos comuns (nome, descrição, preço, estoque) continuam funcionando exatamente como antes.
+
+**Cadastro (portal do parceiro → Produtos).** Ao criar ou editar um produto, marque *"Produto configurável"* e cadastre:
+
+| Grupo | O que informar | Regra para o cliente |
+|---|---|---|
+| Sabores | nome (ex.: Chocolate, Morango) | obrigatório, escolhe 1 |
+| Tamanhos | nome + **acréscimo** sobre o preço base (ex.: 300 ml = 0,00; 500 ml = 3,00) | obrigatório, escolhe 1 |
+| Adicionais | nome + valor (ex.: Chantilly 2,00; Oreo 2,50) | opcional, escolhe 0 ou mais |
+
+O campo **Preço** do produto passa a ser o **preço base**. É preciso ter pelo menos 1 sabor e 1 tamanho.
+
+**Preço:** `preço base + acréscimo do tamanho + soma dos adicionais`.
+Exemplo (base R$ 10,00): Chocolate, 500 ml (+3,00), Chantilly (+2,00) e Oreo (+2,50) = **R$ 17,50**.
+
+**Pedido.** A escolha é gravada no item do pedido (`pedido_itens.configuracao`, em JSON, com nomes e valores da época, e `pedido_itens.preco_unitario`) e também aparece no texto do pedido, por exemplo `1x Milk-Shake (Chocolate, 500 ml, com Chantilly, Oreo)`. Por isso aparece na tela da barraca, no ticket e em "Meus pedidos". Editar o produto depois não altera pedidos já feitos.
+
+**Segurança do preço.** Em pedidos com itens configuráveis, o servidor valida sabor/tamanho/adicionais contra o banco e recalcula o total; o valor enviado pelo navegador é ignorado nesses itens.
+
+**Estoque.** Continua no produto: cada milk-shake vendido desconta 1 unidade, independentemente de sabor, tamanho ou adicionais. Cancelar o pedido devolve o estoque como antes.
+
+**Banco de dados.** Nada precisa ser feito manualmente: ao iniciar, o `app.py` cria as tabelas `produto_sabores`, `produto_tamanhos` e `produto_adicionais` e as colunas `produtos.configuravel`, `pedido_itens.configuracao` e `pedido_itens.preco_unitario`, sem alterar os dados existentes (produtos comuns ficam com `configuravel = 0`).
+
+**API (novidades, as rotas existentes foram mantidas).**
+- `POST/PUT /api/vendor/produtos`: aceitam, de forma opcional, `configuravel`, `sabores`, `tamanhos` e `adicionais`.
+- `GET /api/stalls` e `GET /api/vendor/data`: produtos configuráveis trazem `configuravel` e `opcoes`.
+- `POST /api/orders`: cada item pode levar `config: { saborId, tamanhoId, adicionaisIds }`.
 
 ## 🛠️ Tecnologias
 

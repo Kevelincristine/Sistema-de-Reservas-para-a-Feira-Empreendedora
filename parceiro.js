@@ -413,6 +413,7 @@ function renderProducts() {
         <div class="pdesc">${esc(p.descricao || "")}</div>
         <div class="pprice">${esc(p.preco)}</div>
         <div class="pstock">${estoqueTag} ${!semControle ? `<button type="button" class="stock-restock" data-restock="${p.id}">+ repor</button>` : ""}</div>
+        ${p.configuravel && p.opcoes ? `<div class="cfg-tag">Configurável · ${p.opcoes.sabores.length} sabor(es) · ${p.opcoes.tamanhos.length} tamanho(s) · ${p.opcoes.adicionais.length} adicional(is)</div>` : ""}
       </div>
       <div class="prow-actions">
         <button class="icon-btn" data-toggle="${p.id}"><svg class="icon"><use href="#${p.disponivel ? "i-pause" : "i-play"}"/></svg></button>
@@ -471,6 +472,122 @@ function renderProducts() {
   }));
 }
 
+/* ---------------------------------------------------------------------
+   PRODUTO CONFIGURÁVEL (ex.: milk-shake) — editor de sabores, tamanhos
+   e adicionais. É opcional: só aparece quando a caixa "Produto
+   configurável" é marcada; produtos comuns não passam por aqui.
+   --------------------------------------------------------------------- */
+const CFG_GRUPOS = {
+  sabores: {
+    titulo: "Sabores", sub: "Ex.: Chocolate, Morango, Baunilha. O cliente escolhe um.",
+    ph: "Ex: Chocolate", valor: null, add: "+ Adicionar sabor",
+  },
+  tamanhos: {
+    titulo: "Tamanhos", sub: "Acréscimo sobre o preço base. Use 0,00 no tamanho base (ex.: 300 ml = 0,00; 500 ml = 3,00).",
+    ph: "Ex: 500 ml", valor: "+ 3,00", add: "+ Adicionar tamanho",
+  },
+  adicionais: {
+    titulo: "Adicionais (opcionais para o cliente)", sub: "Ex.: Chantilly 2,00 · Oreo 2,50. O cliente pode escolher nenhum, um ou vários.",
+    ph: "Ex: Chantilly", valor: "+ 2,00", add: "+ Adicionar adicional",
+  },
+};
+
+function cfgLinha(grupo, nome, valor) {
+  const g = CFG_GRUPOS[grupo];
+  const row = document.createElement("div");
+  row.className = "cfg-row";
+  row.innerHTML =
+    `<input type="text" class="cfg-nome" maxlength="60" placeholder="${esc(g.ph)}" aria-label="Nome">` +
+    (g.valor ? `<input type="text" class="cfg-valor" inputmode="decimal" placeholder="${esc(g.valor)}" aria-label="Valor em reais">` : "") +
+    `<button type="button" class="cfg-del" aria-label="Remover">✕</button>`;
+  row.querySelector(".cfg-nome").value = nome || "";
+  const v = row.querySelector(".cfg-valor");
+  if (v) v.value = valor || "";
+  row.querySelector(".cfg-del").addEventListener("click", () => row.remove());
+  return row;
+}
+
+function cfgValorTexto(n) { return Number(n || 0).toFixed(2).replace(".", ","); }
+
+// opcoes (opcional): { sabores:[{nome}], tamanhos:[{nome,acrescimo}], adicionais:[{nome,preco}] }
+function montarEditorOpcoes(box, opcoes) {
+  box.innerHTML = Object.keys(CFG_GRUPOS).map(k => `
+    <div class="cfg-group" data-grupo="${k}">
+      <div class="cfg-title">${esc(CFG_GRUPOS[k].titulo)}</div>
+      <div class="cfg-sub">${esc(CFG_GRUPOS[k].sub)}</div>
+      <div class="cfg-rows"></div>
+      <button type="button" class="cfg-add">${esc(CFG_GRUPOS[k].add)}</button>
+    </div>`).join("");
+
+  const rows = k => box.querySelector(`.cfg-group[data-grupo="${k}"] .cfg-rows`);
+  box.querySelectorAll(".cfg-group").forEach(gr => {
+    gr.querySelector(".cfg-add").addEventListener("click", () => {
+      const linha = cfgLinha(gr.dataset.grupo);
+      gr.querySelector(".cfg-rows").appendChild(linha);
+      linha.querySelector(".cfg-nome").focus();
+    });
+  });
+
+  if (opcoes) {
+    (opcoes.sabores || []).forEach(x => rows("sabores").appendChild(cfgLinha("sabores", x.nome)));
+    (opcoes.tamanhos || []).forEach(x => rows("tamanhos").appendChild(cfgLinha("tamanhos", x.nome, cfgValorTexto(x.acrescimo))));
+    (opcoes.adicionais || []).forEach(x => rows("adicionais").appendChild(cfgLinha("adicionais", x.nome, cfgValorTexto(x.preco))));
+  } else {
+    rows("sabores").appendChild(cfgLinha("sabores"));
+    rows("tamanhos").appendChild(cfgLinha("tamanhos"));
+  }
+}
+
+// Lê e valida o editor. Lança Error com mensagem pronta para o usuário.
+function lerEditorOpcoes(box) {
+  const out = { sabores: [], tamanhos: [], adicionais: [] };
+  box.querySelectorAll(".cfg-group").forEach(gr => {
+    const k = gr.dataset.grupo;
+    gr.querySelectorAll(".cfg-row").forEach(row => {
+      const nome = row.querySelector(".cfg-nome").value.trim();
+      const vEl = row.querySelector(".cfg-valor");
+      const vTxt = vEl ? vEl.value.trim() : "";
+      if (!nome && !vTxt) return;                       // linha em branco: ignora
+      if (!nome) throw new Error("Preencha o nome em todas as linhas de " + CFG_GRUPOS[k].titulo.toLowerCase() + ".");
+      if (k === "sabores") { out.sabores.push(nome); return; }
+      let valor = 0;
+      if (vTxt) {
+        if (!/^(R\$\s?)?\d+([.,]\d{1,2})?$/.test(vTxt)) {
+          throw new Error('Valor inválido em "' + nome + '". Use um formato como 3,00.');
+        }
+        valor = parseFloat(vTxt.replace(/^R\$\s?/, "").replace(",", "."));
+      }
+      if (k === "tamanhos") out.tamanhos.push({ nome, acrescimo: valor });
+      else out.adicionais.push({ nome, preco: valor });
+    });
+  });
+  const dup = (arr, rotulo) => {
+    const vistos = new Set();
+    for (const n of arr) {
+      const c = n.toLowerCase();
+      if (vistos.has(c)) throw new Error(rotulo + " repetido: " + n);
+      vistos.add(c);
+    }
+  };
+  dup(out.sabores, "Sabor");
+  dup(out.tamanhos.map(t => t.nome), "Tamanho");
+  dup(out.adicionais.map(a => a.nome), "Adicional");
+  if (!out.sabores.length || !out.tamanhos.length) {
+    throw new Error("Produto configurável precisa de pelo menos 1 sabor e 1 tamanho.");
+  }
+  return out;
+}
+
+function ligarToggleConfig(chkId, boxId) {
+  const chk = document.getElementById(chkId), box = document.getElementById(boxId);
+  chk.addEventListener("change", () => {
+    box.hidden = !chk.checked;
+    if (chk.checked && !box.children.length) montarEditorOpcoes(box);
+  });
+}
+ligarToggleConfig("pConfig", "pConfigBox");
+ligarToggleConfig("eConfig", "eConfigBox");
+
 document.getElementById("addProductForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const nome = document.getElementById("pName").value.trim();
@@ -490,6 +607,12 @@ document.getElementById("addProductForm").addEventListener("submit", async (e) =
     return;
   }
 
+  let cfgDados = null;
+  if (document.getElementById("pConfig").checked) {
+    try { cfgDados = lerEditorOpcoes(document.getElementById("pConfigBox")); }
+    catch (err) { alert(err.message); return; }
+  }
+
   let imagem = "";
   const fotoFile = document.getElementById("pImg").files[0];
   try {
@@ -507,6 +630,7 @@ document.getElementById("addProductForm").addEventListener("submit", async (e) =
     disponivel: true,
     estoque,
   };
+  if (cfgDados) Object.assign(payload, { configuravel: true, ...cfgDados });
   try {
     const r = await fetch("/api/vendor/produtos", {
       method: "POST",
@@ -516,8 +640,11 @@ document.getElementById("addProductForm").addEventListener("submit", async (e) =
     });
     const body = await r.json().catch(() => ({}));
     if (!r.ok) { alert(body.erro || "Erro ao salvar."); return; }
-    produtos.unshift({ id: body.id, ...payload });
+    if (cfgDados) await carregarTudo();      // recarrega p/ trazer os ids das opções
+    else produtos.unshift({ id: body.id, ...payload });
     e.target.reset();
+    const pBox = document.getElementById("pConfigBox");
+    pBox.hidden = true; pBox.innerHTML = "";
     document.getElementById("pImgPreview").style.display = "none";
     renderProducts(); renderCrates();
     showToast("productToast", "Produto adicionado");
@@ -538,6 +665,11 @@ function openEdit(id) {
   document.getElementById("eStock").value = (p.estoque === null || p.estoque === undefined) ? "" : p.estoque;
   document.getElementById("eDesc").value = p.descricao || "";
   document.getElementById("eActive").checked = p.disponivel;
+  const eBox = document.getElementById("eConfigBox");
+  document.getElementById("eConfig").checked = !!p.configuravel;
+  eBox.innerHTML = "";
+  if (p.configuravel && p.opcoes) { montarEditorOpcoes(eBox, p.opcoes); eBox.hidden = false; }
+  else { eBox.hidden = true; }
   document.getElementById("editOverlay").classList.add("open");
 }
 function closeEdit() { document.getElementById("editOverlay").classList.remove("open"); }
@@ -565,6 +697,14 @@ document.getElementById("editProductForm").addEventListener("submit", async (e) 
     return;
   }
 
+  const pAtual = produtos.find(x => x.id === id);
+  const eCfgOn = document.getElementById("eConfig").checked;
+  let eCfgDados = null;
+  if (eCfgOn) {
+    try { eCfgDados = lerEditorOpcoes(document.getElementById("eConfigBox")); }
+    catch (err) { alert(err.message); return; }
+  }
+
   let imagem = document.getElementById("eImgCurrent").value || "";
   const novaFoto = document.getElementById("eImg").files[0];
   if (novaFoto) {
@@ -584,15 +724,27 @@ document.getElementById("editProductForm").addEventListener("submit", async (e) 
     disponivel: document.getElementById("eActive").checked,
     estoque: eEstoque,
   };
+  // só envia dados de configurável se está ligado (ou se estava e foi desligado)
+  const mexeuConfig = eCfgOn || (pAtual && pAtual.configuravel);
+  if (mexeuConfig) {
+    payload.configuravel = eCfgOn;
+    if (eCfgDados) Object.assign(payload, eCfgDados);
+  }
   try {
-    await fetch(`/api/vendor/produtos/${id}`, {
+    const r = await fetch(`/api/vendor/produtos/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify(payload),
     });
-    const p = produtos.find(x => x.id === id);
-    Object.assign(p, payload);
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) { alert(body.erro || "Erro ao salvar."); return; }
+    if (mexeuConfig) {
+      await carregarTudo();                  // recarrega p/ trazer os ids das opções
+    } else {
+      const p = produtos.find(x => x.id === id);
+      Object.assign(p, payload);
+    }
     closeEdit();
     renderProducts();
     showToast("productToast", "Alterações salvas");

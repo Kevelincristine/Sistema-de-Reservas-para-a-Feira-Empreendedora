@@ -16,6 +16,10 @@ function registerVisit(id) {
     }).catch(() => { });
 }
 
+function escHtml(s) {
+    return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
 function getCategories() {
     return ["Todas", ...new Set(STALLS.map(s => s.category))];
 }
@@ -121,17 +125,21 @@ function openStall(id) {
                     if (semEstoque) estoqueInfo = `<div class="stock-info stock-out">Esgotado</div>`;
                     else if (estoqueBaixo) estoqueInfo = `<div class="stock-info stock-low">Só ${p.estoque} ${p.estoque === 1 ? 'unidade' : 'unidades'} restantes</div>`;
                     else if (temControle) estoqueInfo = `<div class="stock-info">${p.estoque} em estoque</div>`;
+                    const cfg = !!(p.configuravel && p.opcoes);
+                    const precoHtml = cfg
+                        ? `<span class="price-from">a partir de</span>${formatBRL(precoMinimo(p))}`
+                        : p.price;
                     return `
                     <div class="product">
                         <img src="${p.img}" alt="${p.name}">
                         <div class="pbody">
                             <h4>${p.name}</h4>
-                            <div class="price">${p.price}</div>
+                            <div class="price">${precoHtml}</div>
                             <p>${p.desc}</p>
                             ${estoqueInfo}
                             ${semEstoque
                             ? `<button class="product-add" disabled>Esgotado</button>`
-                            : `<button class="product-add" data-stall="${s.id}" data-idx="${i}">+ Adicionar ao carrinho</button>`
+                            : `<button class="product-add" data-stall="${s.id}" data-idx="${i}"${cfg ? ' data-config="1"' : ''}>${cfg ? 'Escolher sabor e tamanho' : '+ Adicionar ao carrinho'}</button>`
                         }
                         </div>
                     </div>
@@ -146,6 +154,12 @@ function openStall(id) {
         btn.addEventListener('click', () => {
             const stallId = Number(btn.getAttribute('data-stall'));
             const idx = parseInt(btn.getAttribute('data-idx'), 10);
+            if (btn.hasAttribute('data-config')) {
+                // produto configurável: abre o seletor de sabor/tamanho/adicionais
+                if (!requireLoginForCartAction({ type: "configure", stallId, idx })) return;
+                openConfigurator(stallId, idx, btn);
+                return;
+            }
             if (!requireLoginForCartAction({ type: "add-to-cart", stallId, idx })) return;
             addToCart(stallId, idx);
             btn.textContent = '✓ Adicionado';
@@ -168,6 +182,7 @@ overlay.addEventListener('click', (e) => { if (e.target === overlay) closeStall(
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+        closeConfigurator();
         closeStall();
         closeCart();
         closeConfirm();
@@ -242,6 +257,166 @@ function addToCart(stallId, productIdx) {
 }
     saveCart(cart);
 }
+/* =====================================================================
+   PRODUTO CONFIGURÁVEL (ex.: milk-shake): Sabor → Tamanho → Adicionais
+   O preço mostrado aqui é só uma prévia: o servidor recalcula
+   (preço base + acréscimo do tamanho + adicionais) ao registrar o pedido.
+   ===================================================================== */
+const configOverlay = document.getElementById('configOverlay');
+const configPanel = document.getElementById('configPanel');
+let _cfgCtx = null;
+
+function precoMinimo(product) {
+    const tams = (product.opcoes && product.opcoes.tamanhos) || [];
+    const menor = tams.length ? Math.min(...tams.map(t => Number(t.acrescimo) || 0)) : 0;
+    return parsePrice(product.price) + menor;
+}
+
+function calcPrecoConfig(product, ctx) {
+    const op = product.opcoes;
+    const tam = op.tamanhos.find(t => t.id === ctx.tamanhoId);
+    const adds = op.adicionais.filter(a => ctx.adicionais.has(a.id));
+    return parsePrice(product.price)
+        + (tam ? Number(tam.acrescimo) || 0 : 0)
+        + adds.reduce((soma, a) => soma + (Number(a.preco) || 0), 0);
+}
+
+function openConfigurator(stallId, idx, btn) {
+    const stall = STALLS.find(s => s.id === stallId);
+    const product = stall && stall.products[idx];
+    if (!product || !product.opcoes) return;
+    const op = product.opcoes;
+
+    _cfgCtx = {
+        stallId, idx, btn: btn || null,
+        saborId: op.sabores.length === 1 ? op.sabores[0].id : null,
+        tamanhoId: op.tamanhos.length === 1 ? op.tamanhos[0].id : null,
+        adicionais: new Set(),
+    };
+
+    const acr = v => (Number(v) > 0 ? `<small>+ ${formatBRL(v)}</small>` : '');
+    configPanel.innerHTML = `
+        <button class="close" id="configClose">✕</button>
+        <h2>${escHtml(product.name)}</h2>
+        <p class="sub">${escHtml(product.desc || 'Monte do seu jeito.')}</p>
+
+        <div class="cfg-section">
+            <div class="cfg-label">1. Sabor <em>(escolha 1)</em></div>
+            <div class="cfg-opts">
+                ${op.sabores.map(x => `
+                    <label class="cfg-opt"><input type="radio" name="cfgSabor" value="${x.id}"${x.id === _cfgCtx.saborId ? ' checked' : ''}><span>${escHtml(x.nome)}</span></label>`).join('')}
+            </div>
+        </div>
+
+        <div class="cfg-section">
+            <div class="cfg-label">2. Tamanho <em>(escolha 1)</em></div>
+            <div class="cfg-opts">
+                ${op.tamanhos.map(x => `
+                    <label class="cfg-opt"><input type="radio" name="cfgTamanho" value="${x.id}"${x.id === _cfgCtx.tamanhoId ? ' checked' : ''}><span>${escHtml(x.nome)} ${acr(x.acrescimo)}</span></label>`).join('')}
+            </div>
+        </div>
+
+        ${op.adicionais.length ? `
+        <div class="cfg-section">
+            <div class="cfg-label">3. Adicionais <em>(opcional)</em></div>
+            <div class="cfg-opts">
+                ${op.adicionais.map(x => `
+                    <label class="cfg-opt"><input type="checkbox" name="cfgAdicional" value="${x.id}"><span>${escHtml(x.nome)} ${acr(x.preco)}</span></label>`).join('')}
+            </div>
+        </div>` : ''}
+
+        <div class="cfg-summary"><span>Total</span><b id="cfgTotal"></b></div>
+        <div class="cfg-error" id="cfgError"></div>
+        <div class="confirm-actions">
+            <button class="confirm-back" id="configCancel">Cancelar</button>
+            <button class="confirm-final" id="configAdd" disabled>Adicionar ao pedido</button>
+        </div>
+    `;
+
+    const atualizar = () => {
+        document.getElementById('cfgTotal').textContent = formatBRL(calcPrecoConfig(product, _cfgCtx));
+        const pronto = _cfgCtx.saborId !== null && _cfgCtx.tamanhoId !== null;
+        document.getElementById('configAdd').disabled = !pronto;
+        document.getElementById('cfgError').textContent =
+            pronto ? '' : (_cfgCtx.saborId === null ? 'Escolha um sabor.' : 'Escolha um tamanho.');
+    };
+
+    configPanel.querySelectorAll('input[name="cfgSabor"]').forEach(el =>
+        el.addEventListener('change', () => { _cfgCtx.saborId = Number(el.value); atualizar(); }));
+    configPanel.querySelectorAll('input[name="cfgTamanho"]').forEach(el =>
+        el.addEventListener('change', () => { _cfgCtx.tamanhoId = Number(el.value); atualizar(); }));
+    configPanel.querySelectorAll('input[name="cfgAdicional"]').forEach(el =>
+        el.addEventListener('change', () => {
+            const id = Number(el.value);
+            if (el.checked) _cfgCtx.adicionais.add(id); else _cfgCtx.adicionais.delete(id);
+            atualizar();
+        }));
+
+    document.getElementById('configClose').addEventListener('click', closeConfigurator);
+    document.getElementById('configCancel').addEventListener('click', closeConfigurator);
+    document.getElementById('configAdd').addEventListener('click', () => {
+        if (_cfgCtx.saborId === null || _cfgCtx.tamanhoId === null) return;
+        addConfiguredToCart(_cfgCtx);
+        const b = _cfgCtx.btn;
+        closeConfigurator();
+        if (b && document.body.contains(b)) {
+            const original = b.textContent;
+            b.textContent = '✓ Adicionado';
+            b.classList.add('added');
+            setTimeout(() => { b.textContent = original; b.classList.remove('added'); }, 1200);
+        } else {
+            openCart();   // veio do fluxo de login: mostra o carrinho
+        }
+    });
+
+    atualizar();
+    configOverlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeConfigurator() {
+    if (!configOverlay) return;
+    configOverlay.classList.remove('open');
+    _cfgCtx = null;
+    document.body.style.overflow = overlay.classList.contains('open') ? 'hidden' : '';
+}
+configOverlay.addEventListener('click', (e) => { if (e.target === configOverlay) closeConfigurator(); });
+
+function addConfiguredToCart(ctx) {
+    const stall = STALLS.find(s => s.id === ctx.stallId);
+    const product = stall && stall.products[ctx.idx];
+    if (!product || !product.opcoes) return;
+    const op = product.opcoes;
+    const sabor = op.sabores.find(x => x.id === ctx.saborId);
+    const tam = op.tamanhos.find(x => x.id === ctx.tamanhoId);
+    const adds = op.adicionais.filter(x => ctx.adicionais.has(x.id));
+    if (!sabor || !tam) return;
+
+    const adicionaisIds = adds.map(a => a.id).sort((a, b) => a - b);
+    // mesma combinação = mesma linha do carrinho (soma a quantidade)
+    const key = `${ctx.stallId}__${ctx.idx}__c${sabor.id}-${tam.id}-${adicionaisIds.join('.')}`;
+    const cart = getCart();
+    const existing = cart.find(item => item.key === key);
+    if (existing) {
+        existing.qty += 1;
+    } else {
+        cart.push({
+            key,
+            stallId: ctx.stallId,
+            stallName: stall.name,
+            stallAddress: stall.address,
+            productId: product.id || null,
+            name: product.name,
+            price: formatBRL(calcPrecoConfig(product, ctx)),   // preço unitário configurado
+            img: product.img,
+            qty: 1,
+            config: { saborId: sabor.id, tamanhoId: tam.id, adicionaisIds },
+            optionsLabel: [sabor.nome, tam.nome, ...adds.map(a => '+ ' + a.nome)].join(' · '),
+        });
+    }
+    saveCart(cart);
+}
+
 function updateCartQty(key, delta) {
     let cart = getCart();
     const item = cart.find(i => i.key === key);
@@ -305,6 +480,7 @@ function renderCartPanel() {
                 <img src="${item.img}" alt="${item.name}">
                 <div class="info">
                     <div class="name">${item.name}</div>
+                    ${item.optionsLabel ? `<div class="opts">${escHtml(item.optionsLabel)}</div>` : ''}
                     <div class="stall">${item.stallName}</div>
                     <div class="price">${item.price}</div>
                 </div>
@@ -368,7 +544,7 @@ function openConfirm() {
                 <div class="stall-name">📍 ${stall.name}</div>
                 ${stall.items.map(item => `
                     <div class="citem">
-                        <span>${item.qty}x ${item.name}</span>
+                        <span>${item.qty}x ${item.name}${item.optionsLabel ? `<small class="citem-opts">${escHtml(item.optionsLabel)}</small>` : ''}</span>
                         <span>${item.price}</span>
                     </div>
                 `).join('')}
@@ -447,7 +623,7 @@ async function finalizeOrder() {
                 <div class="stall-addr">${stall.address}</div>
                 ${stall.items.map(item => `
                     <div class="titem">
-                        <span>${item.qty}x ${item.name}</span>
+                        <span>${item.qty}x ${item.name}${item.optionsLabel ? `<small class="citem-opts">${escHtml(item.optionsLabel)}</small>` : ''}</span>
                         <span>${item.price}</span>
                     </div>
                 `).join('')}
@@ -491,7 +667,8 @@ async function enviarPedidosParaVendedores(byStall) {
                 id: i.productId || null,
                 name: i.name,
                 price: i.price,
-                qty: i.qty
+                qty: i.qty,
+                config: i.config || undefined   // só produtos configuráveis
             })),
             valor: formatBRL(valorNum),
             valorNumerico: valorNum
@@ -615,6 +792,8 @@ function resumePendingAction() {
     } else if (action.type === "add-to-cart") {
         addToCart(action.stallId, action.idx);
         openCart();
+    } else if (action.type === "configure") {
+        openConfigurator(action.stallId, action.idx);
     }
 }
 
