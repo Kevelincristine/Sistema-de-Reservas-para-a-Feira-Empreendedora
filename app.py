@@ -58,6 +58,27 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).parent
 DB_PATH = BASE_DIR / "feira.db"
 
+
+def _carregar_env(caminho):
+    """Lê o arquivo .env (CHAVE=valor) sem exigir python-dotenv.
+    Variáveis já definidas no sistema têm prioridade e não são sobrescritas."""
+    try:
+        with open(caminho, encoding="utf-8-sig") as f:
+            for linha in f:
+                linha = linha.strip()
+                if not linha or linha.startswith("#") or "=" not in linha:
+                    continue
+                chave, valor = linha.split("=", 1)
+                chave = chave.strip()
+                valor = valor.strip().strip('"').strip("'")
+                if chave and chave not in os.environ:
+                    os.environ[chave] = valor
+    except FileNotFoundError:
+        pass
+
+
+_carregar_env(BASE_DIR / ".env")
+
 app = Flask(__name__, static_folder=None)
 
 # 🔒 SEGURANÇA: Secret key é OBRIGATÓRIA em produção
@@ -1629,6 +1650,22 @@ def serve_parceiro():
 @app.route("/admin.html")
 def serve_admin():
     return send_from_directory(BASE_DIR, "admin.html")
+
+
+IMG_DIR = BASE_DIR / "img"
+ALLOWED_IMG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".ico"}
+
+
+@app.route("/img/<path:filename>")
+def serve_img(filename):
+    # Só imagens da pasta img/. send_from_directory bloqueia ../ (path traversal).
+    if Path(filename).suffix.lower() not in ALLOWED_IMG_EXT:
+        abort(404)
+    resp = send_from_directory(IMG_DIR, filename)
+    # Cache de 1 dia no navegador: headers pesados não são rebaixados a cada visita.
+    resp.cache_control.public = True
+    resp.cache_control.max_age = 86400
+    return resp
 
 
 @app.route("/<path:filename>")
