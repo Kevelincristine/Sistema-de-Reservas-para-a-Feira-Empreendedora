@@ -883,10 +883,19 @@ main { max-width: 1080px; margin: 28px auto 80px; padding: 0 clamp(14px, 4vw, 24
 }
 
 @media (min-width: 721px) {
-    .overlay { align-items: center; }
-}
+    header.top {
+        min-height: 302px !important;
+        height: 302px !important;
+        background-image: url('img/cliente\ pc.jpg') !important;
+        background-size: cover !important;
+        background-position: center center !important;
+        background-repeat: no-repeat !important;
+        background-color: transparent;
+        padding: 0 !important;
+        border-bottom: none;
+    }
 
-/* ---------- Produto configurável (milk-shake etc.) ---------- */
+
 .config-overlay { z-index: 240; }
 .cfg-section { margin-top: 16px; }
 .cfg-label {
