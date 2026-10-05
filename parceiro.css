@@ -1,17 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;700&display=swap');
 
 :root{
-  --canvas:#f2e9d8;
-  --awning-a:#b5482f;
-  --awning-b:#f2e9d8;
-  --ink:#241a12;
-  --ink-soft:#3a2f22;
-  --olive:#5c6b3f;
-  --mustard:#d69a2d;
-  --card:#fffaf0;
-  --line: rgba(36,26,18,0.15);
-  --muted:#6b5f4d;
-  --label:#5c5142;
+   --canvas: #ffffff;
+   --ink: #0a0c4b;
+   --ink-soft: #0e0e80;
+   --olive: #0a0c4b;
+   --mustard: #d69a2d;
+   --card: #efefefb3;
+   --line: #381f6e26;
+   --muted: #6b5f4d;
+   --label: #5c5142;
 }
 *{box-sizing:border-box; margin:0; padding:0;}
 html, body{ width:100%; max-width:100%; overflow-x:hidden; }
